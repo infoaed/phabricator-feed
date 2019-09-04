@@ -31,59 +31,66 @@ function phabricator_feed_get_data() {
     
     $options = get_option("phabricator_feed_import");
 
-    $conduit_token = $options["conduit_token"];
-    $conduit_uri = new PhutilURI($options['conduit_uri']);
-    $conduit_host = (string) $conduit_uri->setPath('/');
-    $conduit_uri = (string) $conduit_uri->setPath('/api/');
-    $conduit = new ConduitClient($conduit_uri);
-    $conduit->setConduitToken($conduit_token);
+    try {
 
-    // "projects": [ "WMEE" ], "statuses": ["open"]
-    $tasks = array();
-    $tags = array();
-    
-    $param = ['constraints' => ['projects' => [$options["source_project"]], 'statuses' => ['open']], 'attachments' => [ 'projects' => 'true' ]];
-    $tasks = $conduit->callMethodSynchronous('maniphest.search', $param);
+        $conduit_token = $options["conduit_token"];
+        $conduit_uri = new PhutilURI($options['conduit_uri']);
+        $conduit_host = (string) $conduit_uri->setPath('/');
+        $conduit_uri = (string) $conduit_uri->setPath('/api/');
+        $conduit = new ConduitClient($conduit_uri);
+        $conduit->setConduitToken($conduit_token);
 
-    $delete = $wpdb->query("TRUNCATE TABLE $table_name_feed");
-    $delete = $wpdb->query("TRUNCATE TABLE $table_name_tags");
-    $delete = $wpdb->query("TRUNCATE TABLE $table_name_map");
-    
-    if (count($tasks) > 0) {
-
-        foreach ($tasks['data'] as $task) {
-            $tasks_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $task['fields']['name']);
-            foreach ($task['attachments']['projects']['projectPHIDs'] as $tag) {
-                $tasks_map_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $tag);
-                $tags[] = $tag;
-            }
-        }
+        // "projects": [ "WMEE" ], "statuses": ["open"]
+        $tasks = array();
+        $tags = array();
         
-        $param = ['constraints' => ['phids' => $tags]];
-        $tags = $conduit->callMethodSynchronous('project.search', $param);
+        $param = ['constraints' => ['projects' => [$options["source_project"]], 'statuses' => ['open']], 'attachments' => [ 'projects' => 'true' ]];
+        $tasks = $conduit->callMethodSynchronous('maniphest.search', $param);
+
+        $delete = $wpdb->query("TRUNCATE TABLE $table_name_feed");
+        $delete = $wpdb->query("TRUNCATE TABLE $table_name_tags");
+        $delete = $wpdb->query("TRUNCATE TABLE $table_name_map");
         
-        if (count($tags) > 0) {
-            foreach ($tags['data'] as $tag) {
-                $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $tag['phid'], $tag['fields']['name'], $tag['fields']['slug']);
+        if (count($tasks) > 0) {
+
+            foreach ($tasks['data'] as $task) {
+                $tasks_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $task['fields']['name']);
+                foreach ($task['attachments']['projects']['projectPHIDs'] as $tag) {
+                    $tasks_map_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $tag);
+                    $tags[] = $tag;
+                }
             }
+            
+            $param = ['constraints' => ['phids' => $tags]];
+            $tags = $conduit->callMethodSynchronous('project.search', $param);
+            
+            if (count($tags) > 0) {
+                foreach ($tags['data'] as $tag) {
+                    $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $tag['phid'], $tag['fields']['name'], $tag['fields']['slug']);
+                }
+            }
+
+            $tags_sql = implode( ",\n", $tags_sql );
+            $query = "INSERT INTO $table_name_tags (id, name, slug) VALUES {$tags_sql}";
+            $wpdb->query($query);
+
+            $tasks_sql = implode( ",\n", $tasks_sql );
+            $query = "INSERT INTO $table_name_feed (id, name) VALUES {$tasks_sql}";
+            $wpdb->query($query);
+
+            $tasks_map_sql = implode( ",\n", $tasks_map_sql );
+            $query = "INSERT INTO $table_name_map (rec_id, tag_id) VALUES {$tasks_map_sql}";
+            $wpdb->query($query);
+
+            $options["last_updated"] = current_time("timestamp");
+
+            update_option("phabricator_feed_import", $options);
+            add_shortcodes();
         }
 
-        $tags_sql = implode( ",\n", $tags_sql );
-        $query = "INSERT INTO $table_name_tags (id, name, slug) VALUES {$tags_sql}";
-        $wpdb->query($query);
-
-        $tasks_sql = implode( ",\n", $tasks_sql );
-        $query = "INSERT INTO $table_name_feed (id, name) VALUES {$tasks_sql}";
-        $wpdb->query($query);
-
-        $tasks_map_sql = implode( ",\n", $tasks_map_sql );
-        $query = "INSERT INTO $table_name_map (rec_id, tag_id) VALUES {$tasks_map_sql}";
-        $wpdb->query($query);
-
-        $options["last_updated"] = current_time("timestamp");
-
-        update_option("phabricator_feed_import", $options);
-        add_shortcodes();
+    } catch (ConduitClientException $ex) {
+        
+        error_log($ex);
     }
 }
 
