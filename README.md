@@ -10,16 +10,21 @@ The intended use of the plugin is displaying set of simpler Phabricator tasks on
 * Conduit URI (for example `https://phabricator.wikimedia.org/api/`)
 * Conduit token (for example `api-z4ekoy6xefnego7i7xezxao23lj2`)
 
-## Installing
+## Install
 
 Download the pugin into your Wordpress [plugins directory](https://codex.wordpress.org/WordPress_Files#wp-content.2Fplugins):
 
-`git clone https://github.com/infoaed/phabricator-feed.git`
+```
+cd /usr/share/wordpress/wp-content/plugins
+git clone https://github.com/infoaed/phabricator-feed.git
+```
 
 Download the [Phacility utilities PHP library](https://github.com/phacility/libphutil) to `phabricator-feed` directory:
 
-`cd phabricator-feed
-git clone https://github.com/phacility/libphutil.git`
+```
+cd phabricator-feed
+git clone https://github.com/phacility/libphutil.git
+```
 
 Activate the plugin in Wordpress.
 
