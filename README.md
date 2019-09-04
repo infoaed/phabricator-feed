@@ -26,6 +26,6 @@ cd phabricator-feed
 git clone https://github.com/phacility/libphutil.git
 ```
 
-Activate the plugin in Wordpress.
+Activate the plugin in Wordpress, edit Conduit API settings and start using the shortcodes.
 
-Make sure your installation PHP has [cURL modules](https://www.php.net/manual/en/curl.installation.php) installed. 
+Also make sure your installation PHP has [cURL modules](https://www.php.net/manual/en/curl.installation.php) installed. 
