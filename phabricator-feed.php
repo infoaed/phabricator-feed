@@ -25,39 +25,6 @@ $table_name_feed = $wpdb->prefix . 'phabricator_feed_recs';
 $table_name_tags = $wpdb->prefix . 'phabricator_feed_tags';
 $table_name_map = $wpdb->prefix . 'phabricator_feed_map';
 
-function phabricator_feed_install() {
-    global $wpdb;
-    global $table_name_feed, $table_name_tags, $table_name_map;
-    
-    $charset_collate = $wpdb->get_charset_collate();
-    
-    $sql = array();
-
-    $sql[] = "CREATE TABLE $table_name_feed (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        name tinytext NOT NULL,
-        PRIMARY KEY  (id)
-    ) $charset_collate;";
-
-    $sql[] = "CREATE TABLE $table_name_tags (
-        id varchar(50) NOT NULL,
-        name tinytext NOT NULL,
-        slug tinytext NOT NULL,
-        PRIMARY KEY  (id)
-    ) $charset_collate;";
-
-    $sql[] = "CREATE TABLE $table_name_map (
-        tag_id varchar(50) NOT NULL,
-        rec_id mediumint(9) NOT NULL
-    ) $charset_collate;";
-
-    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-    dbDelta($sql);
-    
-    $default_interval = 100;
-    add_option("phabricator_feed_import", Array("update_interval" => $default_interval, "conduit_uri" => "https://phabricator.wikimedia.org/api/", "conduit_token" => "api-token_which_starts_with_api", "last_updated" => current_time("timestamp")-$default_interval, "source_project" => "WMEE"));
-}
-
 function phabricator_feed_get_data() {
     global $wpdb;
     global $table_name_feed, $table_name_tags, $table_name_map;
@@ -168,8 +135,57 @@ function wp_feed_shortcode($slug) {
 
 register_activation_hook( __FILE__, 'phabricator_feed_install' );
 register_activation_hook( __FILE__, 'phabricator_feed_get_data' );
+register_uninstall_hook(__FILE__, 'phabricator_feed_uninstall');
 
 add_shortcodes();
+
+function phabricator_feed_install() {
+    global $wpdb;
+    global $table_name_feed, $table_name_tags, $table_name_map;
+    
+    $charset_collate = $wpdb->get_charset_collate();
+    
+    $sql = array();
+
+    $sql[] = "CREATE TABLE $table_name_feed (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        name tinytext NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+
+    $sql[] = "CREATE TABLE $table_name_tags (
+        id varchar(50) NOT NULL,
+        name tinytext NOT NULL,
+        slug tinytext NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+
+    $sql[] = "CREATE TABLE $table_name_map (
+        tag_id varchar(50) NOT NULL,
+        rec_id mediumint(9) NOT NULL
+    ) $charset_collate;";
+
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+    dbDelta($sql);
+    
+    $default_interval = 100;
+    add_option("phabricator_feed_import", Array("update_interval" => $default_interval, "conduit_uri" => "https://phabricator.wikimedia.org/api/", "conduit_token" => "api-token_which_starts_with_api", "last_updated" => current_time("timestamp")-$default_interval, "source_project" => "WMEE"));
+}
+
+function phabricator_feed_uninstall() {
+    global $wpdb;
+    global $table_name_feed, $table_name_tags, $table_name_map;
+
+    $table_name_feed = $wpdb->prefix . 'phabricator_feed_recs';
+    $table_name_tags = $wpdb->prefix . 'phabricator_feed_tags';
+    $table_name_map = $wpdb->prefix . 'phabricator_feed_map';
+      
+    delete_option('phabricator_feed_import');
+
+    $wpdb->query("DROP TABLE IF EXISTS {$table_name_map}");
+    $wpdb->query("DROP TABLE IF EXISTS {$table_name_tags}");
+    $wpdb->query("DROP TABLE IF EXISTS {$table_name_feed}");
+}
 
 /* the rest of it is settings */
 
@@ -259,5 +275,7 @@ function salcode_add_plugin_page_settings_link( $links ) {
 } 
 
 add_filter('plugin_action_links_'.plugin_basename(__FILE__), 'salcode_add_plugin_page_settings_link');
+
+
 
 ?>
