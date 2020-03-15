@@ -3,7 +3,7 @@
 * Plugin Name: Phabricator Feed Importer
 * Plugin URI: https://github.com/infoaed/phabricator-feed
 * Description: This imports feeds from Phabricator workflow management.
-* Version: 1.0
+* Version: 1.1
 * Author: Märt Põder
 * Author URI: http://gafgaf.infoaed.ee/
 * License: GPL2

@@ -1,5 +1,5 @@
 # phabricator-feed
-Phabricator Feed Importer Wordpress plugin creates Wordpress content [shortcodes](https://en.support.wordpress.com/shortcodes/) from task feeds imported from [Phabricator](https://en.wikipedia.org/wiki/Phabricator) through its [Conduit API](https://secure.phabricator.com/book/phabricator/article/conduit/). The shortcodes are formatted like `[phabricator_feed_` + `project_slug]` (for example `[phabricator_feed_myproject]`). The shortcodes will be created for all the project slugs found under specified source project.
+Phabricator Feed Importer Wordpress plugin creates Wordpress content [shortcodes](https://en.support.wordpress.com/shortcodes/) from task feeds imported from [Phabricator](https://en.wikipedia.org/wiki/Phabricator) through its [Conduit API](https://secure.phabricator.com/book/phabricator/article/conduit/). The shortcodes are formatted like `[phabricator_feed_` + `project_slug]` (for example `[phabricator_feed_myproject]`). The shortcodes will be created for all the project slugs as well as column titles found under specified source project and listed under settings.
 
 The intended use of the plugin is displaying set of simpler Phabricator tasks on Wordpress in order to be outsourced to volunteers.
 
