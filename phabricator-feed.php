@@ -44,7 +44,7 @@ function phabricator_feed_get_data() {
         $tasks = array();
         $tags = array();
         
-        $param = ['constraints' => ['projects' => [$options["source_project"]], 'statuses' => ['open']], 'attachments' => [ 'projects' => 'true' ]];
+        $param = ['constraints' => ['projects' => [$options["source_project"]], 'statuses' => ['open']], 'attachments' => [ 'projects' => 'true', 'columns' => 'true' ]];
         $tasks = $conduit->callMethodSynchronous('maniphest.search', $param);
 
         $delete = $wpdb->query("TRUNCATE TABLE $table_name_feed");
@@ -58,6 +58,15 @@ function phabricator_feed_get_data() {
                 foreach ($task['attachments']['projects']['projectPHIDs'] as $tag) {
                     $tasks_map_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $tag);
                     $tags[] = $tag;
+                }
+                foreach ($task['attachments']['columns']['boards'] as $tag) {
+                    foreach ($tag['columns'] as $col) {
+                        $tasks_map_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $col['phid']);
+                        if (!in_array($col['id'], isset($cols) ? $cols : array())) {
+                            $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $col['phid'], $col['name'], str_replace(" ", "_", strtolower($col['name'])));
+                            $cols[] = $col['id'];
+                        }
+                    }
                 }
             }
             
@@ -121,19 +130,23 @@ function wp_feed_shortcode($slug) {
     }
 
     $result = $wpdb->get_results ( "
-        SELECT $table_name_feed.id, $table_name_feed.name, $table_name_tags.name AS tag
+        SELECT $table_name_feed.id AS id, $table_name_feed.name, GROUP_CONCAT($table_name_tags.name) AS tag
         FROM $table_name_map
         INNER JOIN $table_name_tags ON $table_name_tags.id = $table_name_map.tag_id
         INNER JOIN $table_name_feed ON $table_name_feed.id = $table_name_map.rec_id
         WHERE $table_name_tags.slug IN ('$slug')
+        GROUP BY id
     " );
 
     $text = "";
     if (count($result) > 0) {
-        $text .= "<ul>";
+        $text .= "<ul class=\"". $slug. "-phabricator\">";
         foreach ( $result as $page ) {
             $text .= "<li><a href=\"https://phabricator.wikimedia.org/T" . $page->id . "\">" . $page->name . "</a></li>\n";
         }
+        $text .= "</ul>";
+    } else {
+        $text .= "<ul class=\"". $slug. "-phabricator-none\">";
         $text .= "</ul>";
     }
 
@@ -259,6 +272,8 @@ function phabricator_feed_options_add_page_fn() {
 }
 
 function phabricator_feed_options_page_fn() {
+    global $wpdb;
+    global $table_name_tags;
     ?>
     <div class="wrap">
         <h1>Phabricator Feed Importer Settings</h1>
@@ -269,6 +284,23 @@ function phabricator_feed_options_page_fn() {
             submit_button()
         ?>
         </form>
+
+        <h2>Current shortcodes</h2>
+        <ul>
+        <?php
+
+        $result = $wpdb->get_results ( "
+            SELECT $table_name_tags.slug
+            FROM $table_name_tags
+        " );
+
+        if (count($result) > 0) {
+            foreach ( $result as $project ) {
+                echo "<li><code>phabricator_feed_".$project->slug."</code></li>";
+            }
+        }
+        ?>
+        </ul>
     </div>
     <?php
 }
