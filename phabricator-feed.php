@@ -57,27 +57,36 @@ function phabricator_feed_get_data() {
                 $tasks_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $task['fields']['name']);
                 foreach ($task['attachments']['projects']['projectPHIDs'] as $tag) {
                     $tasks_map_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $tag);
-                    $tags[] = $tag;
+                    $project_phids[] = $tag;
                 }
-                foreach ($task['attachments']['columns']['boards'] as $tag) {
+            }
+            
+            $param = ['constraints' => ['phids' => $project_phids]];
+            $projects = $conduit->callMethodSynchronous('project.search', $param);
+            
+            if (count($projects) > 0) {
+                foreach ($projects['data'] as $tag) {
+                    $slug = $tag['fields']['slug'];
+                    if (strlen($slug) == 0) $slug = str_replace(" ", "_", strtolower($tag['fields']['name']));
+                    $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $tag['phid'], $tag['fields']['name'], $slug);
+                    $tags[$tag['phid']] = $slug;
+                }
+            }
+
+            foreach ($tasks['data'] as $task) {
+                foreach ($task['attachments']['columns']['boards'] as $project_id => $tag) {
+                    $project_slug = str_replace(" ", "_", strtolower($tags[$project_id]));
                     foreach ($tag['columns'] as $col) {
                         $tasks_map_sql[] = $wpdb->prepare("(%d,%s)", $task['id'], $col['phid']);
                         if (!in_array($col['id'], isset($cols) ? $cols : array())) {
-                            $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $col['phid'], $col['name'], str_replace(" ", "_", strtolower($col['name'])));
+                            $slug = $project_slug . "_" . str_replace(" ", "_", strtolower($col['name']));
+                            $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $col['phid'], $col['name'], $slug);
                             $cols[] = $col['id'];
                         }
                     }
                 }
             }
-            
-            $param = ['constraints' => ['phids' => $tags]];
-            $tags = $conduit->callMethodSynchronous('project.search', $param);
-            
-            if (count($tags) > 0) {
-                foreach ($tags['data'] as $tag) {
-                    $tags_sql[] = $wpdb->prepare("(%s,%s,%s)", $tag['phid'], $tag['fields']['name'], $tag['fields']['slug']);
-                }
-            }
+
 
             $tags_sql = implode( ",\n", $tags_sql );
             $query = "INSERT INTO $table_name_tags (id, name, slug) VALUES {$tags_sql}";
@@ -108,7 +117,7 @@ function add_shortcodes() {
     global $table_name_tags;
     
     $result = $wpdb->get_results ( "
-        SELECT $table_name_tags.slug
+        SELECT DISTINCT $table_name_tags.slug
         FROM $table_name_tags
     " );
 
@@ -290,7 +299,7 @@ function phabricator_feed_options_page_fn() {
         <?php
 
         $result = $wpdb->get_results ( "
-            SELECT $table_name_tags.slug
+            SELECT DISTINCT $table_name_tags.slug
             FROM $table_name_tags
         " );
 
